@@ -35,6 +35,7 @@ class VirtualCamApp:
         self.brightness=tk.DoubleVar(value=0)
         self.overlay=tk.StringVar()
         self.status=tk.StringVar(value="Ready — preview needs no virtual camera driver")
+        self.output_status=tk.StringVar(value="Virtual output: OFF — Preview is not a webcam")
         self.build_ui()
         root.after(60,self.tick)
         root.protocol("WM_DELETE_WINDOW",self.close)
@@ -79,6 +80,7 @@ class VirtualCamApp:
         self.preview=tk.Label(right,text="Choose an image / video or click Preview",bg="#101720",fg="white")
         self.preview.pack(fill="both",expand=True,pady=6)
         ttk.Label(area,textvariable=self.status,wraplength=930).pack(anchor="w")
+        ttk.Label(area,textvariable=self.output_status,wraplength=930,font=("Segoe UI",10,"bold")).pack(anchor="w",pady=(5,0))
 
     def choose(self):
         path=filedialog.askopenfilename(filetypes=[("Media","*.png *.jpg *.jpeg *.bmp *.mp4 *.mkv *.avi *.mov *.webm"),("All files","*.*")])
@@ -115,6 +117,7 @@ class VirtualCamApp:
         self.virtual_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
         self.notify("Opening camera output…" if virtual else "Opening preview…")
+        self.output_status.set("Virtual output: CONNECTING…" if virtual else "Virtual output: OFF — Preview is not a webcam")
         def run():
             if previous and previous.is_alive():previous.join(timeout=2)
             if not event.is_set():self.stream(mode,path,options,virtual,event)
@@ -124,6 +127,7 @@ class VirtualCamApp:
     def stop(self):
         if self.stop_event:self.stop_event.set()
         self.notify("Stopping…")
+        self.output_status.set("Virtual output: OFF")
 
     @staticmethod
     def fit(frame,w,h):
@@ -158,8 +162,9 @@ class VirtualCamApp:
                 try:
                     camera=pyvirtualcam.Camera(width=w,height=h,fps=fps,fmt=pyvirtualcam.PixelFormat.RGB,backend="unitycapture")
                     self.notify("Virtual camera active: "+camera.device)
+                    self.notify("OUTPUT_OK|"+camera.device)
                 except Exception as exc:
-                    self.notify("Preview ONLY — Unity Capture unavailable: "+str(exc))
+                    self.notify("OUTPUT_ERROR|Unity Capture is not ready. Install its driver, then select Unity Video Capture in the target app. Details: "+str(exc))
             else:self.notify("Preview running — no driver required")
             next_time=time.monotonic()
             while not event.is_set():
@@ -186,7 +191,7 @@ class VirtualCamApp:
                 if camera:
                     try:camera.send(np.ascontiguousarray(rgb))
                     except Exception as exc:
-                        self.notify("Virtual output stopped; preview continues: "+str(exc))
+                        self.notify("OUTPUT_ERROR|Virtual camera send failed: "+str(exc))
                         camera.close()
                         camera=None
                 with self.lock:
@@ -212,7 +217,15 @@ class VirtualCamApp:
             photo=ImageTk.PhotoImage(Image.fromarray(frame))
             self.preview.configure(image=photo,text="")
             self.preview.image=photo
-        if messages:self.status.set(messages[-1])
+        for msg in messages:
+            if msg.startswith("OUTPUT_OK|"):
+                self.output_status.set("Virtual output: ACTIVE — "+msg.split("|",1)[1])
+                self.status.set("Select Unity Video Capture in your destination app.")
+            elif msg.startswith("OUTPUT_ERROR|"):
+                detail=msg.split("|",1)[1]
+                self.output_status.set("Virtual output: FAILED — only preview works")
+                self.status.set(detail)
+            else:self.status.set(msg)
         if not self.running:
             self.preview_button.configure(state="normal")
             self.virtual_button.configure(state="normal")
