@@ -1,0 +1,6 @@
+pyvirtualcam>=0.13,<1
+opencv-python>=4.8,<5
+numpy>=1.26,<3
+Pillow>=10,<13
+mss>=9,<11
+pyinstaller>=6,<7
