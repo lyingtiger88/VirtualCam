@@ -10,6 +10,7 @@ import mss
 import numpy as np
 import pyvirtualcam
 from PIL import Image, ImageTk
+from frame_bridge import FrameBridge
 
 SIZES = {"640x480": (640,480), "1280x720": (1280,720), "1920x1080": (1920,1080)}
 
@@ -140,7 +141,7 @@ class VirtualCamApp:
         return resized[y:y+h,x:x+w]
 
     def stream(self,mode,path,opt,virtual,event):
-        capture=screen=camera=None
+        capture=screen=camera=bridge=None
         try:
             w,h=opt["size"]
             fps=opt["fps"]
@@ -158,6 +159,11 @@ class VirtualCamApp:
                 if still is None:raise RuntimeError("Cannot decode image; try JPEG/PNG")
             elif mode=="Desktop":
                 screen=mss.mss()
+            try:
+                bridge=FrameBridge(w,h)
+                self.notify("Native RGB frame bridge active (NOT a Windows camera device)")
+            except Exception as exc:
+                self.notify("Native frame bridge unavailable: "+str(exc))
             if virtual:
                 try:
                     camera=pyvirtualcam.Camera(width=w,height=h,fps=fps,fmt=pyvirtualcam.PixelFormat.RGB,backend="unitycapture")
@@ -188,6 +194,12 @@ class VirtualCamApp:
                     cv2.putText(frame,opt["overlay"],(30,h-40),cv2.FONT_HERSHEY_SIMPLEX,0.8,(0,0,0),5,cv2.LINE_AA)
                     cv2.putText(frame,opt["overlay"],(30,h-40),cv2.FONT_HERSHEY_SIMPLEX,0.8,(255,255,255),2,cv2.LINE_AA)
                 rgb=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+                if bridge:
+                    try:bridge.publish(rgb)
+                    except Exception as exc:
+                        self.notify('Frame bridge stopped: '+str(exc))
+                        bridge.close()
+                        bridge=None
                 if camera:
                     try:camera.send(np.ascontiguousarray(rgb))
                     except Exception as exc:
@@ -203,6 +215,7 @@ class VirtualCamApp:
         except Exception as exc:self.notify("ERROR: "+str(exc))
         finally:
             if camera:camera.close()
+            if bridge:bridge.close()
             if capture:capture.release()
             if screen:screen.close()
             if self.stop_event is event:self.running=False
