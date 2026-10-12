@@ -20,3 +20,9 @@ jobs:
           name: BDFRVCamRegistrar-win-x64
           path: native/build/Release/BDFRVCamRegistrar.exe
           if-no-files-found: error
+      - name: Publish frame bridge probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: BDFRFrameBridgeProbe-win-x64
+          path: native/build/Release/BDFRFrameBridgeProbe.exe
+          if-no-files-found: error
