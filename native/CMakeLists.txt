@@ -7,3 +7,7 @@ add_executable(BDFRVCamRegistrar registrar.cpp)
 target_compile_features(BDFRVCamRegistrar PRIVATE cxx_std_17)
 target_compile_definitions(BDFRVCamRegistrar PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
 target_link_libraries(BDFRVCamRegistrar PRIVATE mfplat mf mfuuid ole32)
+
+add_executable(BDFRFrameBridgeProbe bridge_probe.cpp)
+target_compile_features(BDFRFrameBridgeProbe PRIVATE cxx_std_17)
+target_compile_definitions(BDFRFrameBridgeProbe PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
